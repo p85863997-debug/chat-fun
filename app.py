@@ -762,7 +762,7 @@ class ChatFlowApp:
             self.show_create_group_modal()
 
         st.markdown("---")
-        col1, col2 = st.columns(2)
+        cols = st.columns(2)
         with col1:
             if st.button("⚙️ Settings"):
                 self.show_settings_modal()
@@ -891,10 +891,7 @@ class ChatFlowApp:
         <div class="chat-message {alignment} {disappearing_class}">
             {header}
             {content_html}
-            <div class="message-meta">
-                <span>{timestamp}</span>
-                <span style="margin-left:8px;">{status_icons}</span>
-            </div>
+            
             {reactions_html}
         </div>
         """
@@ -910,10 +907,10 @@ class ChatFlowApp:
                 if st.button("🗑️", key=f"del_{message['id']}"):
                     self.delete_message_modal(message["id"])
 
-        # reaction buttons (FIXED: use a list of columns as proper context managers)
-        cols = st.columns([1, 1, 1, 1, 6])
+        # reaction buttons
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 6])
         reactions = ["👍", "❤️", "😂", "😮", "😢"]
-        for i, emoji in enumerate(reactions[:4]):
+        for i, emoji in enumerate(reactions):
             with cols[i]:
                 if st.button(emoji, key=f"react_{message['id']}_{i}"):
                     self.toggle_reaction(message["id"], emoji)
@@ -948,9 +945,9 @@ class ChatFlowApp:
     def process_text_content(self, content: str) -> str:
         # linkify
         url_pattern = r'(http[s]?://[^\s]+)'
-        content = re.sub(url_pattern, r'<a href="\\1" target="_blank">\\1</a>', content)
+        content = re.sub(url_pattern, r'<a href="\1" target="_blank">\1</a>', content)
         # mentions
-        content = re.sub(r'@(\w+)', r'<span style="color:#007bff;">@\\1</span>', content)
+        content = re.sub(r'@(\w+)', r'<span style="color:#007bff;">@\1</span>', content)
         # simple newline-><br>
         content = content.replace("\n", "<br>")
         return f"<div>{content}</div>"
