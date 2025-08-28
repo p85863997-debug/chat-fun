@@ -1,25 +1,18 @@
 # app.py
-# Place this file at:
-# C:\Users\user\Documents\streamlitevenandoddnumber\pages\app.py
-#
-# Run:
-# pip install streamlit pillow
-# streamlit run "C:\Users\user\Documents\streamlitevenandoddnumber\pages\app.py"
+# Fully corrected version of ChatFlow — single-file Streamlit app
 
 import streamlit as st
 import sqlite3
 import hashlib
 import datetime
-import time
 import json
 import base64
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import uuid
 from PIL import Image
 import io
-import threading
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from enum import Enum
 import re
 
@@ -51,12 +44,8 @@ def load_css():
     .chat-message.disappearing { background: linear-gradient(135deg,#ff6b6b,#ee5a52); color: white; }
     .message-meta { font-size: 11px; opacity: 0.75; margin-top: 6px; display: flex; gap: 8px; align-items:center; }
     .chat-container { height: 520px; overflow-y: auto; padding: 16px; background: linear-gradient(to bottom,#f8f9fa,#ffffff); border-radius: 12px; border:1px solid #e9ecef; }
-    .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #007bff; }
     .message-reactions { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
     .reaction { background: rgba(0,123,255,0.08); border:1px solid rgba(0,123,255,0.12); border-radius:12px; padding:2px 6px; font-size:12px; }
-    .fab { position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg,#007bff,#0056b3); color: white; border-radius:50%; width:56px;height:56px;border:none;font-size:24px; box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
-    .stButton>button { border-radius: 14px; }
-    .uploadedFile { border-radius:12px; border: 2px dashed #007bff; padding: 16px; text-align:center; background: rgba(0,123,255,0.04); }
     </style>
     """,
         unsafe_allow_html=True,
@@ -120,13 +109,13 @@ class Chat:
     last_message_at: Optional[str] = None
     is_secret: bool = False
 
+
 # -------------------------
 # Database Manager
 # -------------------------
 class DatabaseManager:
     def __init__(self, db_name: str = "chatflow.db"):
         self.db_name = db_name
-        # Ensure upload folder exists
         self.init_db()
 
     def get_conn(self):
@@ -638,8 +627,13 @@ class ChatFlowApp:
             st.session_state.theme = "light"
         if "message_draft" not in st.session_state:
             st.session_state.message_draft = ""
-        if "typing_users" not in st.session_state:
-            st.session_state.typing_users = {}
+        # message options storage
+        if "_disappear" not in st.session_state:
+            st.session_state._disappear = None
+        if "_secret" not in st.session_state:
+            st.session_state._secret = False
+        if "_silent" not in st.session_state:
+            st.session_state._silent = False
 
     def run(self):
         load_css()
@@ -762,7 +756,7 @@ class ChatFlowApp:
             self.show_create_group_modal()
 
         st.markdown("---")
-        cols = st.columns(2)
+        col1, col2 = st.columns(2)
         with col1:
             if st.button("⚙️ Settings"):
                 self.show_settings_modal()
@@ -784,7 +778,6 @@ class ChatFlowApp:
                 chat_name = chat["name"]
                 if not chat["is_group"] and chat_name == "Direct Chat":
                     # Attempt to show other user's name (best-effort)
-                    # We'll fetch participants and pick the other user
                     try:
                         conn = self.db.get_conn()
                         cur = conn.cursor()
@@ -891,7 +884,7 @@ class ChatFlowApp:
         <div class="chat-message {alignment} {disappearing_class}">
             {header}
             {content_html}
-            
+            <div class="message-meta">{timestamp} {status_icons}</div>
             {reactions_html}
         </div>
         """
@@ -909,6 +902,7 @@ class ChatFlowApp:
 
         # reaction buttons
         col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 6])
+        cols = [col1, col2, col3, col4, col5]
         reactions = ["👍", "❤️", "😂", "😮", "😢"]
         for i, emoji in enumerate(reactions):
             with cols[i]:
@@ -931,11 +925,12 @@ class ChatFlowApp:
                         b = base64.b64encode(f.read()).decode()
                         return f'<img src="data:image/png;base64,{b}" style="max-width:320px;border-radius:8px;">'
                 except Exception:
-                    return f'<a href="{content}" target="_blank">📎 Download file</a>'
+                    return f'<a href="#" onclick="window.open(\'{content}\')">📎 Download file</a>'
         elif mtype == MessageType.FILE.value:
             fname = content.split(os.sep)[-1] if os.sep in content else content
-            # provide download button via HTML link (works in many browsers) and fallback text
-            return f'📎 <a href="file://{os.path.abspath(content)}" download="{fname}">Download {fname}</a>'
+            # Provide a download button (Streamlit). We'll return a placeholder and use st.download_button below.
+            # For HTML rendering fallback:
+            return f'📎 {fname} (use download below)'
         elif mtype == MessageType.VOICE.value:
             return f'🎤 <audio controls><source src="{content}" type="audio/mpeg"></audio>'
         elif mtype == MessageType.VIDEO.value:
@@ -976,7 +971,7 @@ class ChatFlowApp:
                     st.session_state.message_draft = ""
                     st.rerun()
         with col3:
-            uploaded = st.file_uploader("📎", type=["png", "jpg", "jpeg", "gif", "pdf", "docx", "txt", "zip"], key="file_uploader")
+            uploaded = st.file_uploader("📎", type=["png", "jpg", "jpeg", "gif", "pdf", "docx", "txt", "zip", "mp4", "mov", "avi"], key="file_uploader")
             if uploaded:
                 self.send_file_message(uploaded)
                 st.rerun()
@@ -1205,11 +1200,6 @@ class ChatFlowApp:
                 status = "🟢 Online" if is_online else f"⚫ Last seen: {last_seen or 'unknown'}"
                 role = " (Admin)" if is_admin else ""
                 st.write(f"- {uname}{role} — {status}")
-
-    # -------------------------
-    # End of ChatFlowApp
-    # -------------------------
-
 
 # -------------------------
 # Run app
