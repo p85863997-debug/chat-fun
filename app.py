@@ -1,5 +1,5 @@
 # app.py
-# Fully corrected version of ChatFlow — single-file Streamlit app
+# Final corrected ChatFlow single-file app (defensive user checks + fixes)
 
 import streamlit as st
 import sqlite3
@@ -627,7 +627,6 @@ class ChatFlowApp:
             st.session_state.theme = "light"
         if "message_draft" not in st.session_state:
             st.session_state.message_draft = ""
-        # message options storage
         if "_disappear" not in st.session_state:
             st.session_state._disappear = None
         if "_secret" not in st.session_state:
@@ -635,17 +634,32 @@ class ChatFlowApp:
         if "_silent" not in st.session_state:
             st.session_state._silent = False
 
+    def safe_user_id(self) -> Optional[str]:
+        """
+        Return a stable user id string from st.session_state.user, whether it's None, a dataclass User, or a dict.
+        """
+        u = st.session_state.get("user", None)
+        if u is None:
+            return None
+        if hasattr(u, "id"):
+            return getattr(u, "id")
+        if isinstance(u, dict) and "id" in u:
+            return u["id"]
+        return None
+
     def run(self):
         load_css()
         st.title("💬 ChatFlow")
         if st.session_state.user is None:
             self.show_auth_page()
         else:
-            # mark online
-            try:
-                self.db.update_user_status(st.session_state.user.id, True)
-            except Exception:
-                pass
+            # mark online (defensive)
+            uid = self.safe_user_id()
+            if uid:
+                try:
+                    self.db.update_user_status(uid, True)
+                except Exception:
+                    pass
             self.show_main_app()
 
     # -------------------------
@@ -717,14 +731,24 @@ class ChatFlowApp:
             self.show_welcome_screen()
 
     def show_sidebar(self):
-        user = st.session_state.user
-        st.markdown(f"### 👋 {user.username}")
-        # Quick stats
+        user = st.session_state.get("user", None)
+        username_display = ""
+        if user is None:
+            username_display = "(unknown)"
+        elif hasattr(user, "username"):
+            username_display = user.username
+        elif isinstance(user, dict):
+            username_display = user.get("username", "(unknown)")
+        st.markdown(f"### 👋 {username_display}")
+
+        # Quick stats (defensive)
+        uid = self.safe_user_id()
         try:
-            user_chats = self.db.get_user_chats(user.id)
+            user_chats = self.db.get_user_chats(uid) if uid else []
         except Exception:
             user_chats = []
         st.markdown(f"**{len(user_chats)}** chats")
+
         # Theme toggle
         if st.button("🌓 Toggle Theme"):
             st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
@@ -733,8 +757,8 @@ class ChatFlowApp:
         st.markdown("---")
         st.markdown("### 🔍 Find people")
         search_query = st.text_input("Search users...", placeholder="username or email", key="sidebar_search")
-        if search_query:
-            found = self.db.search_users(search_query, user.id)
+        if search_query and uid:
+            found = self.db.search_users(search_query, uid)
             for u in found:
                 col1, col2 = st.columns([3, 1])
                 with col1:
@@ -744,7 +768,7 @@ class ChatFlowApp:
                         st.caption(u["bio"][:50] + ("..." if len(u["bio"]) > 50 else ""))
                 with col2:
                     if st.button("💬", key=f"start_{u['id']}"):
-                        chat_id = self.chat_manager.create_direct_chat(user.id, u["id"])
+                        chat_id = self.chat_manager.create_direct_chat(uid, u["id"])
                         if chat_id:
                             st.session_state.current_chat = chat_id
                             st.rerun()
@@ -761,11 +785,15 @@ class ChatFlowApp:
             if st.button("⚙️ Settings"):
                 self.show_settings_modal()
         with col2:
+            # Logout: guard against missing/invalid user
             if st.button("🚪 Logout"):
-                try:
-                    self.db.update_user_status(st.session_state.user.id, False)
-                except Exception:
-                    pass
+                uid = self.safe_user_id()
+                if uid:
+                    try:
+                        self.db.update_user_status(uid, False)
+                    except Exception:
+                        pass
+                # clear session safely
                 st.session_state.user = None
                 st.session_state.current_chat = None
                 st.rerun()
@@ -781,7 +809,7 @@ class ChatFlowApp:
                     try:
                         conn = self.db.get_conn()
                         cur = conn.cursor()
-                        cur.execute("SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id != ?", (chat["id"], st.session_state.user.id))
+                        cur.execute("SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id != ?", (chat["id"], uid))
                         r = cur.fetchone()
                         conn.close()
                         if r:
@@ -858,7 +886,7 @@ class ChatFlowApp:
         st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
 
     def render_message(self, message: Dict):
-        is_own = message["sender_id"] == st.session_state.user.id
+        is_own = message["sender_id"] == self.safe_user_id()
         alignment = "sent" if is_own else "received"
         disappearing_class = "disappearing" if message.get("disappear_at") else ""
         content_html = self.render_message_content(message)
@@ -925,12 +953,12 @@ class ChatFlowApp:
                         b = base64.b64encode(f.read()).decode()
                         return f'<img src="data:image/png;base64,{b}" style="max-width:320px;border-radius:8px;">'
                 except Exception:
-                    return f'<a href="#" onclick="window.open(\'{content}\')">📎 Download file</a>'
+                    # safe fallback: show filename and download button below
+                    fname = os.path.basename(content)
+                    return f'📎 {fname}'
         elif mtype == MessageType.FILE.value:
-            fname = content.split(os.sep)[-1] if os.sep in content else content
-            # Provide a download button (Streamlit). We'll return a placeholder and use st.download_button below.
-            # For HTML rendering fallback:
-            return f'📎 {fname} (use download below)'
+            fname = os.path.basename(content)
+            return f'📎 {fname}'
         elif mtype == MessageType.VOICE.value:
             return f'🎤 <audio controls><source src="{content}" type="audio/mpeg"></audio>'
         elif mtype == MessageType.VIDEO.value:
@@ -1007,7 +1035,7 @@ class ChatFlowApp:
         message = Message(
             id=str(uuid.uuid4()),
             chat_id=st.session_state.current_chat,
-            sender_id=st.session_state.user.id,
+            sender_id=self.safe_user_id() or "unknown",
             content=content,
             message_type=MessageType.TEXT,
             reactions={},
@@ -1023,7 +1051,7 @@ class ChatFlowApp:
         if not st.session_state.current_chat:
             st.error("No chat selected.")
             return
-        saved = self.file_manager.save_uploaded_file(uploaded_file, st.session_state.user.id)
+        saved = self.file_manager.save_uploaded_file(uploaded_file, self.safe_user_id() or "anon")
         if not saved:
             st.error("Failed to save file.")
             return
@@ -1037,7 +1065,7 @@ class ChatFlowApp:
         else:
             mtype = MessageType.FILE
             content = saved
-        msg = Message(id=str(uuid.uuid4()), chat_id=st.session_state.current_chat, sender_id=st.session_state.user.id, content=content, message_type=mtype, reactions={})
+        msg = Message(id=str(uuid.uuid4()), chat_id=st.session_state.current_chat, sender_id=self.safe_user_id() or "unknown", content=content, message_type=mtype, reactions={})
         ok = self.db.send_message(msg)
         if ok:
             st.success("File sent!")
@@ -1052,7 +1080,7 @@ class ChatFlowApp:
             st.error("Message not found.")
             return
         reactions = msg.get("reactions", {}) or {}
-        user_id = st.session_state.user.id
+        user_id = self.safe_user_id() or "unknown"
         users = reactions.get(emoji, [])
         if user_id in users:
             users.remove(user_id)
@@ -1099,7 +1127,8 @@ class ChatFlowApp:
             search_q = st.text_input("Search users to add", key="create_group_search")
             selected_users = []
             if search_q:
-                users = self.db.search_users(search_q, st.session_state.user.id)
+                uid = self.safe_user_id()
+                users = self.db.search_users(search_q, uid) if uid else []
                 for u in users:
                     if st.checkbox(u["username"], key=f"add_{u['id']}"):
                         selected_users.append(u["id"])
@@ -1108,8 +1137,8 @@ class ChatFlowApp:
                     st.error("Provide group name and select participants.")
                     return
                 chat_id = str(uuid.uuid4())
-                chat = Chat(id=chat_id, name=group_name, is_group=True, created_by=st.session_state.user.id)
-                participants = [st.session_state.user.id] + selected_users
+                chat = Chat(id=chat_id, name=group_name, is_group=True, created_by=self.safe_user_id() or "unknown")
+                participants = ([self.safe_user_id()] if self.safe_user_id() else []) + selected_users
                 ok = self.db.create_chat(chat, participants)
                 if ok:
                     st.success(f"Group '{group_name}' created.")
@@ -1121,22 +1150,34 @@ class ChatFlowApp:
     def show_settings_modal(self):
         with st.expander("Settings", expanded=True):
             st.subheader("Profile")
-            new_bio = st.text_area("Bio", value=st.session_state.user.bio or "", max_chars=150)
+            user = st.session_state.get("user", None)
+            current_bio = ""
+            if user is None:
+                current_bio = ""
+            elif hasattr(user, "bio"):
+                current_bio = user.bio
+            elif isinstance(user, dict):
+                current_bio = user.get("bio", "")
+            new_bio = st.text_area("Bio", value=current_bio, max_chars=150)
             avatar_file = st.file_uploader("Avatar", type=["png", "jpg", "jpeg"], key="avatar_upload")
             if st.button("Save profile"):
                 try:
+                    uid = self.safe_user_id()
+                    if not uid:
+                        st.error("No user found.")
+                        return
                     conn = self.db.get_conn()
                     cursor = conn.cursor()
                     if avatar_file:
-                        avatar_path = self.file_manager.save_uploaded_file(avatar_file, st.session_state.user.id)
-                        cursor.execute("UPDATE users SET bio = ?, avatar = ? WHERE id = ?", (new_bio, avatar_path, st.session_state.user.id))
+                        avatar_path = self.file_manager.save_uploaded_file(avatar_file, uid)
+                        cursor.execute("UPDATE users SET bio = ?, avatar = ? WHERE id = ?", (new_bio, avatar_path, uid))
                     else:
-                        cursor.execute("UPDATE users SET bio = ? WHERE id = ?", (new_bio, st.session_state.user.id))
+                        cursor.execute("UPDATE users SET bio = ? WHERE id = ?", (new_bio, uid))
                     conn.commit()
                     conn.close()
                     st.success("Profile updated.")
                     # refresh session user
-                    st.session_state.user = self.db.get_user_by_id(st.session_state.user.id)
+                    st.session_state.user = self.db.get_user_by_id(uid)
                 except Exception as e:
                     st.error(f"Failed to update profile: {e}")
 
@@ -1150,7 +1191,7 @@ class ChatFlowApp:
     def show_search_in_chat(self):
         with st.expander("Search in Chat", expanded=True):
             q = st.text_input("Search messages...", key="search_in_chat_q")
-            if q:
+            if q and st.session_state.current_chat:
                 conn = self.db.get_conn()
                 cur = conn.cursor()
                 cur.execute(
@@ -1200,6 +1241,7 @@ class ChatFlowApp:
                 status = "🟢 Online" if is_online else f"⚫ Last seen: {last_seen or 'unknown'}"
                 role = " (Admin)" if is_admin else ""
                 st.write(f"- {uname}{role} — {status}")
+
 
 # -------------------------
 # Run app
