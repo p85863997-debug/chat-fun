@@ -23,6 +23,8 @@ from enum import Enum
 import pickle
 import os
 from pathlib import Path
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=3000, key="chatrefresh")
 
 # =============================
 # Configure Streamlit page
@@ -1207,3 +1209,4 @@ class ChatApplication:
 # =============================
 app = ChatApplication()
 app.main_ui()
+
