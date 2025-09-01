@@ -131,6 +131,38 @@ st.markdown("""
     .caption, small, .muted-text {
         color: var(--muted-text) !important;
     }
+
+    /* Reaction chips */
+    .reaction-chip {
+        background: rgba(88, 101, 242, 0.1);
+        border: 1px solid rgba(88, 101, 242, 0.3);
+        border-radius: 15px;
+        padding: 2px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: var(--dark-text) !important; /* readable on light bg */
+    }
+    .reaction-chip:hover {
+        background: rgba(88, 101, 242, 0.2);
+        transform: scale(1.1);
+    }
+
+    /* Story items */
+    .story-item small {
+        color: var(--dark-text) !important; /* readable below avatar */
+    }
+
+    /* Notification badge */
+    .notification-badge {
+        background: var(--danger-color);
+        color: var(--light-text) !important;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: auto;
+    }
 </style>
 """, unsafe_allow_html=True)
 
