@@ -1016,7 +1016,8 @@ class ChatApplication:
 
     # ---------- Pages ----------
     
-class ChatApplication:
+    class ChatApplication:
+    class ChatApplication:
     def __init__(self):
         self.db = DatabaseManager()
         self.auth = AuthManager()
@@ -1096,7 +1097,7 @@ def __init__(self):
         self.ui = UIComponents()
         self.init_session_state()
 
-def page_chats(self):   # 👈 keep this indented under the class
+    def page_chats(self):   # 👈 keep this indented under the class
         st.title("💬 Chats")
 
         user: User = st.session_state.user
@@ -1169,7 +1170,7 @@ def page_chats(self):   # 👈 keep this indented under the class
                 if u:
                     st.json({"username": u.username, "status": u.online_status.value, "bio": u.status_message})
 
-def page_groups(self):
+    def page_groups(self):
         user = st.session_state.user
         st.markdown("# 👥 Groups")
         colA, colB = st.columns([2, 3], gap="large")
@@ -1231,7 +1232,7 @@ def page_groups(self):
                     )
                     st.rerun()
 
-def page_contacts(self):
+    def page_contacts(self):
         user = st.session_state.user
         st.markdown("# 📇 Contacts")
         contacts = self.db.get_user_contacts(user.user_id)
@@ -1251,12 +1252,12 @@ def page_contacts(self):
             else:
                 st.error("User not found.")
 
-def page_stories(self):
+    def page_stories(self):
         st.markdown("# 📸 Stories")
         self.ui.render_story_bar(st.session_state.stories, st.session_state.users_cache)
         st.info("Stories UI is a visual placeholder in this MVP.")
 
-def page_profile(self):
+    def page_profile(self):
         user = st.session_state.user
         st.markdown("# 👤 Profile")
         with st.form("profile_form"):
@@ -1272,7 +1273,7 @@ def page_profile(self):
                 st.session_state.user = self.db.get_user_by_id(user.user_id)
                 st.success("Profile updated.")
 
-def page_settings(self):
+    def page_settings(self):
         st.markdown("# ⚙️ Settings")
         with st.expander("Security"):
             st.checkbox("Enable 2FA (placeholder)")
@@ -1288,7 +1289,3 @@ def page_settings(self):
 # =============================
 app = ChatApplication()
 app.main_ui()
-
-
-
-
