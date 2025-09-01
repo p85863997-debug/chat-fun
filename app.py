@@ -1015,59 +1015,68 @@ class ChatApplication:
             self.page_settings()
 
     # ---------- Pages ----------
-    def page_chats(self):
-    st.title("💬 Chats")
+    class ChatApplication:
+    def __init__(self):
+        self.db = DatabaseManager()
+        self.auth = AuthManager()
+        self.media = MediaHandler()
+        self.realtime = RealtimeHandler()
+        self.ui = UIComponents()
+        self.init_session_state()
 
-    user: User = st.session_state.user
-    active = st.session_state.active_chat
+    def page_chats(self):   # 👈 keep this indented under the class
+        st.title("💬 Chats")
 
-    # 🔄 Auto-refresh every 3 seconds
-    from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=3000, key="chatrefresh")
+        user: User = st.session_state.user
+        active = st.session_state.active_chat
 
-    # Sidebar chat list
-    contacts = self.db.get_user_contacts(user.user_id)
-    self.ui.render_chat_list(contacts, active_chat=active)
+        # 🔄 Auto-refresh every 3 seconds
+        from streamlit_autorefresh import st_autorefresh
+        st_autorefresh(interval=3000, key="chatrefresh")
 
-    # If no active chat, show a message
-    if not active:
-        st.info("👈 Select a chat from the sidebar to start messaging.")
-        return
+        # Sidebar chat list
+        contacts = self.db.get_user_contacts(user.user_id)
+        self.ui.render_chat_list(contacts, active_chat=active)
 
-    # Load messages
-    messages = self.db.get_messages(user.user_id, active, limit=50)
+        # If no active chat, show a message
+        if not active:
+            st.info("👈 Select a chat from the sidebar to start messaging.")
+            return
 
-    # Render chat header
-    contact = next((c for c in contacts if c['user_id'] == active), None)
-    if contact:
-        st.markdown(f"### {contact['username']}")
+        # Load messages
+        messages = self.db.get_messages(user.user_id, active, limit=50)
 
-    # Show messages
-    users_dict = {c['user_id']: User(**c) for c in contacts if isinstance(c, dict)}
-    for msg in messages:
-        self.ui.render_message(msg, current_user_id=user.user_id, users=users_dict)
+        # Render chat header
+        contact = next((c for c in contacts if c['user_id'] == active), None)
+        if contact:
+            st.markdown(f"### {contact['username']}")
 
-    st.markdown("---")
+        # Show messages
+        users_dict = {c['user_id']: User(**c) for c in contacts if isinstance(c, dict)}
+        for msg in messages:
+            self.ui.render_message(msg, current_user_id=user.user_id, users=users_dict)
 
-    # === Input area ===
-    if "send_clicked" not in st.session_state:
-        st.session_state.send_clicked = False
+        st.markdown("---")
 
-    txt = st.text_input("Type your message...", key="chat_input")
-    minutes = st.slider("⏳ Message expiry (minutes)", 0, 60, 0)
+        # === Input area ===
+        if "send_clicked" not in st.session_state:
+            st.session_state.send_clicked = False
 
-    if st.button("Send"):
-        st.session_state.send_clicked = True
+        txt = st.text_input("Type your message...", key="chat_input")
+        minutes = st.slider("⏳ Message expiry (minutes)", 0, 60, 0)
 
-    if st.session_state.send_clicked and txt.strip():
-        self.db.send_message(
-            sender_id=user.user_id,
-            recipient_id=active,
-            content=txt,
-            message_type=MessageType.TEXT,
-        )
-        st.session_state.send_clicked = False  # reset
-        st.rerun()
+        if st.button("Send"):
+            st.session_state.send_clicked = True
+
+        if st.session_state.send_clicked and txt.strip():
+            self.db.send_message(
+                sender_id=user.user_id,
+                recipient_id=active,
+                content=txt,
+                message_type=MessageType.TEXT,
+            )
+            st.session_state.send_clicked = False  # reset
+            st.rerun()
 
 
         with col_right:
