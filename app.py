@@ -1017,7 +1017,7 @@ class ChatApplication:
     # ---------- Pages ----------
     
     class ChatApplication:
-     def __init__(self):
+    def __init__(self):
         self.db = DatabaseManager()
         self.auth = AuthManager()
         self.media = MediaHandler()
@@ -1288,4 +1288,5 @@ def __init__(self):
 # =============================
 app = ChatApplication()
 app.main_ui()
+
 
