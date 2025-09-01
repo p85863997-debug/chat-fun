@@ -23,12 +23,8 @@ from enum import Enum
 import pickle
 import os
 from pathlib import Path
-from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=1000, key="chatrefresh")
 
-# =============================
 # Configure Streamlit page
-# =============================
 st.set_page_config(
     page_title="ChatFusion Pro",
     page_icon="💬",
@@ -36,11 +32,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# =============================
 # Custom CSS for modern UI
-# =============================
-st.markdown(
-    """
+st.markdown("""
 <style>
     /* Modern color scheme */
     :root {
@@ -58,9 +51,12 @@ st.markdown(
         --away-status: #FAA61A;
         --offline-status: #747F8D;
     }
-
-    .stApp { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-
+    
+    /* Main container styling */
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
     /* Chat interface */
     .chat-container {
         background: rgba(255, 255, 255, 0.95);
@@ -70,7 +66,7 @@ st.markdown(
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         backdrop-filter: blur(10px);
     }
-
+    
     .message-bubble {
         max-width: 70%;
         padding: 12px 16px;
@@ -79,7 +75,7 @@ st.markdown(
         word-wrap: break-word;
         animation: slideIn 0.3s ease;
     }
-
+    
     .message-sent {
         background: linear-gradient(135deg, #5865F2, #7289DA);
         color: white;
@@ -87,7 +83,7 @@ st.markdown(
         margin-right: 10px;
         border-bottom-right-radius: 4px;
     }
-
+    
     .message-received {
         background: #E3E5E8;
         color: #2C2F33;
@@ -95,53 +91,226 @@ st.markdown(
         margin-left: 10px;
         border-bottom-left-radius: 4px;
     }
-
-    .user-status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+    
+    /* User status indicators */
+    .user-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    
     .status-online { background-color: var(--online-status); }
     .status-away { background-color: var(--away-status); }
     .status-offline { background-color: var(--offline-status); }
-
-    .typing-indicator { display: inline-block; padding: 8px 12px; background: #E3E5E8; border-radius: 18px; margin: 10px; }
-    .typing-indicator span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #99AAB5; margin: 0 2px; animation: typing 1.4s infinite; }
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
-
-    .story-container { display: flex; overflow-x: auto; padding: 15px 0; gap: 15px; }
-    .story-item { min-width: 80px; text-align: center; cursor: pointer; transition: transform 0.2s; }
-    .story-item:hover { transform: scale(1.05); }
-    .story-avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid var(--primary-color); padding: 2px; background: white; display:flex; align-items:center; justify-content:center; }
-
-    .group-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 15px 15px 0 0; margin: -20px -20px 20px -20px; }
-
-    .upload-area { border: 2px dashed #7289DA; border-radius: 15px; padding: 30px; text-align: center; background: rgba(88, 101, 242, 0.05); transition: all 0.3s; }
-    .upload-area:hover { background: rgba(88, 101, 242, 0.1); border-color: #5865F2; }
-
-    .custom-button { background: linear-gradient(135deg, #5865F2, #7289DA); color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-    .custom-button:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(88, 101, 242, 0.3); }
-
-    .chat-list-item { padding: 12px; border-radius: 10px; margin: 5px 0; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
-    .chat-list-item:hover { background: rgba(88, 101, 242, 0.1); transform: translateX(5px); }
-    .chat-list-item.active { background: linear-gradient(135deg, #5865F2, #7289DA); color: white; }
-
-    .notification-badge { background: #F04747; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; font-weight: bold; margin-left: auto; }
-
-    .voice-player { background: #40444B; border-radius: 25px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; color: white; }
-    .message-reactions { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
-    .reaction-chip { background: rgba(88, 101, 242, 0.1); border: 1px solid rgba(88, 101, 242, 0.3); border-radius: 15px; padding: 2px 8px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-    .reaction-chip:hover { background: rgba(88, 101, 242, 0.2); transform: scale(1.1); }
-
-    .divider { height:1px; background: rgba(0,0,0,0.08); margin: 10px 0; }
+    
+    /* Typing indicator */
+    .typing-indicator {
+        display: inline-block;
+        padding: 8px 12px;
+        background: #E3E5E8;
+        border-radius: 18px;
+        margin: 10px;
+    }
+    
+    .typing-indicator span {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #99AAB5;
+        margin: 0 2px;
+        animation: typing 1.4s infinite;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0%, 60%, 100% {
+            transform: translateY(0);
+        }
+        30% {
+            transform: translateY(-10px);
+        }
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Story/Status container */
+    .story-container {
+        display: flex;
+        overflow-x: auto;
+        padding: 15px 0;
+        gap: 15px;
+    }
+    
+    .story-item {
+        min-width: 80px;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .story-item:hover {
+        transform: scale(1.05);
+    }
+    
+    .story-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: 3px solid var(--primary-color);
+        padding: 2px;
+        background: white;
+    }
+    
+    /* Group chat header */
+    .group-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 15px 15px 0 0;
+        margin: -20px -20px 20px -20px;
+    }
+    
+    /* File upload area */
+    .upload-area {
+        border: 2px dashed #7289DA;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        background: rgba(88, 101, 242, 0.05);
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+        background: rgba(88, 101, 242, 0.1);
+        border-color: #5865F2;
+    }
+    
+    /* Custom buttons */
+    .custom-button {
+        background: linear-gradient(135deg, #5865F2, #7289DA);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .custom-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(88, 101, 242, 0.3);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Chat list item */
+    .chat-list-item {
+        padding: 12px;
+        border-radius: 10px;
+        margin: 5px 0;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .chat-list-item:hover {
+        background: rgba(88, 101, 242, 0.1);
+        transform: translateX(5px);
+    }
+    
+    .chat-list-item.active {
+        background: linear-gradient(135deg, #5865F2, #7289DA);
+        color: white;
+    }
+    
+    /* Notification badge */
+    .notification-badge {
+        background: #F04747;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: auto;
+    }
+    
+    /* Media viewer overlay */
+    .media-viewer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    
+    /* Voice message player */
+    .voice-player {
+        background: #40444B;
+        border-radius: 25px;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+    }
+    
+    /* Reaction emojis */
+    .message-reactions {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .reaction-chip {
+        background: rgba(88, 101, 242, 0.1);
+        border: 1px solid rgba(88, 101, 242, 0.3);
+        border-radius: 15px;
+        padding: 2px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .reaction-chip:hover {
+        background: rgba(88, 101, 242, 0.2);
+        transform: scale(1.1);
+    }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# =============================
 # Database Models and Enums
-# =============================
 class UserStatus(Enum):
     ONLINE = "online"
     AWAY = "away"
@@ -182,7 +351,7 @@ class User:
 class Message:
     message_id: str
     sender_id: str
-    recipient_id: Optional[str]
+    recipient_id: str
     content: str
     message_type: MessageType
     status: MessageStatus
@@ -192,7 +361,6 @@ class Message:
     reactions: Dict[str, List[str]] = None
     is_deleted: bool = False
     expires_at: Optional[datetime] = None
-    group_id: Optional[str] = None
 
 @dataclass
 class Group:
@@ -218,25 +386,19 @@ class Story:
     reactions: Dict[str, List[str]]
     is_highlight: bool = False
 
-# =============================
 # Database Manager
-# =============================
 class DatabaseManager:
     def __init__(self, db_path="chat_app.db"):
         self.db_path = db_path
         self.init_database()
-
-    def _connect(self):
-        return sqlite3.connect(self.db_path, detect_types=sqlite3.PARSE_DECLTYPES)
-
+    
     def init_database(self):
         """Initialize database tables"""
-        conn = self._connect()
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-
+        
         # Users table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
                 username TEXT UNIQUE NOT NULL,
@@ -252,12 +414,10 @@ class DatabaseManager:
                 two_factor_enabled BOOLEAN DEFAULT FALSE,
                 settings TEXT
             )
-            """
-        )
-
+        """)
+        
         # Messages table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 message_id TEXT PRIMARY KEY,
                 sender_id TEXT NOT NULL,
@@ -274,12 +434,10 @@ class DatabaseManager:
                 expires_at TIMESTAMP,
                 FOREIGN KEY (sender_id) REFERENCES users(user_id)
             )
-            """
-        )
-
+        """)
+        
         # Groups table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS groups (
                 group_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -292,12 +450,10 @@ class DatabaseManager:
                 settings TEXT,
                 FOREIGN KEY (creator_id) REFERENCES users(user_id)
             )
-            """
-        )
-
+        """)
+        
         # Stories table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS stories (
                 story_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -310,12 +466,10 @@ class DatabaseManager:
                 is_highlight BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
-            """
-        )
-
+        """)
+        
         # Contacts table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS contacts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -328,12 +482,10 @@ class DatabaseManager:
                 FOREIGN KEY (contact_id) REFERENCES users(user_id),
                 UNIQUE(user_id, contact_id)
             )
-            """
-        )
-
-        # Channels table (not fully used; placeholder for future)
-        cursor.execute(
-            """
+        """)
+        
+        # Channels table
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS channels (
                 channel_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -348,119 +500,67 @@ class DatabaseManager:
                 settings TEXT,
                 FOREIGN KEY (owner_id) REFERENCES users(user_id)
             )
-            """
-        )
-
+        """)
+        
         conn.commit()
         conn.close()
-
-    # ---------- Users ----------
+    
     def create_user(self, username: str, email: str, password: str) -> Optional[User]:
+        """Create a new user account"""
         user_id = str(uuid.uuid4())
         password_hash = hashlib.sha256(password.encode()).hexdigest()
-
-        conn = self._connect()
+        
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-
+        
         try:
-            cursor.execute(
-                """
+            cursor.execute("""
                 INSERT INTO users (
-                    user_id, username, email, password_hash,
+                    user_id, username, email, password_hash, 
                     status_message, online_status, last_seen, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    user_id,
-                    username,
-                    email,
-                    password_hash,
-                    "Hey there! I'm using ChatFusion",
-                    UserStatus.ONLINE.value,
-                    datetime.now(),
-                    datetime.now(),
-                ),
-            )
+            """, (
+                user_id, username, email, password_hash,
+                "Hey there! I'm using ChatFusion", UserStatus.ONLINE.value,
+                datetime.now(), datetime.now()
+            ))
             conn.commit()
-            return self.get_user_by_id(user_id)
+            
+            user = User(
+                user_id=user_id,
+                username=username,
+                email=email,
+                phone=None,
+                avatar=None,
+                status_message="Hey there! I'm using ChatFusion",
+                online_status=UserStatus.ONLINE,
+                last_seen=datetime.now(),
+                created_at=datetime.now()
+            )
+            return user
+            
         except sqlite3.IntegrityError:
             return None
         finally:
             conn.close()
-
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT user_id, username, email, phone, avatar, status_message,
-                   online_status, last_seen, created_at, is_verified, two_factor_enabled
-            FROM users WHERE user_id = ?
-            """,
-            (user_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return User(
-                user_id=row[0],
-                username=row[1],
-                email=row[2],
-                phone=row[3],
-                avatar=row[4],
-                status_message=row[5],
-                online_status=UserStatus(row[6]),
-                last_seen=row[7],
-                created_at=row[8],
-                is_verified=bool(row[9]),
-                two_factor_enabled=bool(row[10]),
-            )
-        return None
-
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT user_id, username, email, phone, avatar, status_message,
-                   online_status, last_seen, created_at, is_verified, two_factor_enabled
-            FROM users WHERE username = ?
-            """,
-            (username,),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return User(
-                user_id=row[0],
-                username=row[1],
-                email=row[2],
-                phone=row[3],
-                avatar=row[4],
-                status_message=row[5],
-                online_status=UserStatus(row[6]),
-                last_seen=row[7],
-                created_at=row[8],
-                is_verified=bool(row[9]),
-                two_factor_enabled=bool(row[10]),
-            )
-        return None
-
+    
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
+        """Authenticate user login"""
         password_hash = hashlib.sha256(password.encode()).hexdigest()
-        conn = self._connect()
+        
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        
+        cursor.execute("""
             SELECT user_id, username, email, phone, avatar, status_message,
                    online_status, last_seen, created_at, is_verified, two_factor_enabled
             FROM users
             WHERE username = ? AND password_hash = ?
-            """,
-            (username, password_hash),
-        )
+        """, (username, password_hash))
+        
         row = cursor.fetchone()
         conn.close()
+        
         if row:
             return User(
                 user_id=row[0],
@@ -472,182 +572,104 @@ class DatabaseManager:
                 online_status=UserStatus(row[6]),
                 last_seen=row[7],
                 created_at=row[8],
-                is_verified=bool(row[9]),
-                two_factor_enabled=bool(row[10]),
+                is_verified=row[9],
+                two_factor_enabled=row[10]
             )
         return None
-
-    # ---------- Contacts ----------
-    def add_contact(self, user_id: str, contact_id: str, nickname: Optional[str] = None):
-        conn = self._connect()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                INSERT OR IGNORE INTO contacts (user_id, contact_id, nickname, added_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (user_id, contact_id, nickname, datetime.now()),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-    def get_user_contacts(self, user_id: str) -> List[Dict[str, Any]]:
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT c.contact_id, u.username, u.avatar, u.status_message, u.online_status,
-                   c.nickname, c.is_favorite, c.is_blocked
-            FROM contacts c
-            JOIN users u ON c.contact_id = u.user_id
-            WHERE c.user_id = ? AND c.is_blocked = FALSE
-            ORDER BY c.is_favorite DESC, u.username
-            """,
-            (user_id,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        contacts = []
-        for row in rows:
-            contacts.append(
-                {
-                    "user_id": row[0],
-                    "username": row[1],
-                    "avatar": row[2],
-                    "status_message": row[3],
-                    "online_status": row[4],
-                    "nickname": row[5],
-                    "is_favorite": bool(row[6]),
-                    "is_blocked": bool(row[7]),
-                }
-            )
-        return contacts
-
-    # ---------- Messages ----------
-    def send_message(
-        self,
-        sender_id: str,
-        content: str,
-        message_type: MessageType = MessageType.TEXT,
-        recipient_id: Optional[str] = None,
-        group_id: Optional[str] = None,
-        expires_minutes: Optional[int] = None,
-    ) -> Message:
+    
+    def send_message(self, sender_id: str, recipient_id: str, content: str, 
+                    message_type: MessageType = MessageType.TEXT) -> Message:
+        """Send a message to a user or group"""
         message_id = str(uuid.uuid4())
         timestamp = datetime.now()
-        expires_at = (
-            timestamp + timedelta(minutes=expires_minutes) if expires_minutes else None
-        )
-        conn = self._connect()
+        
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        
+        cursor.execute("""
             INSERT INTO messages (
-                message_id, sender_id, recipient_id, group_id, content,
-                message_type, status, timestamp, edited_at, reply_to, reactions, is_deleted, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                message_id,
-                sender_id,
-                recipient_id,
-                group_id,
-                content,
-                message_type.value,
-                MessageStatus.SENT.value,
-                timestamp,
-                None,
-                None,
-                json.dumps({}),
-                False,
-                expires_at,
-            ),
-        )
+                message_id, sender_id, recipient_id, content, 
+                message_type, status, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            message_id, sender_id, recipient_id, content,
+            message_type.value, MessageStatus.SENT.value, timestamp
+        ))
+        
         conn.commit()
         conn.close()
+        
         return Message(
             message_id=message_id,
             sender_id=sender_id,
             recipient_id=recipient_id,
-            group_id=group_id,
             content=content,
             message_type=message_type,
             status=MessageStatus.SENT,
             timestamp=timestamp,
-            reactions={},
-            expires_at=expires_at,
+            reactions={}
         )
-
-    def get_messages(
-        self, user_id: str, contact_id: str, limit: int = 50
-    ) -> List[Message]:
-        conn = self._connect()
+    
+    def get_messages(self, user_id: str, contact_id: str, limit: int = 50) -> List[Message]:
+        """Get messages between two users"""
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT message_id, sender_id, recipient_id, group_id, content, message_type,
-                   status, timestamp, edited_at, reply_to, reactions, is_deleted, expires_at
+        
+        cursor.execute("""
+            SELECT message_id, sender_id, recipient_id, content, message_type,
+                   status, timestamp, edited_at, reply_to, reactions, is_deleted
             FROM messages
-            WHERE ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))
-              AND (expires_at IS NULL OR expires_at > ?)
+            WHERE (sender_id = ? AND recipient_id = ?) 
+               OR (sender_id = ? AND recipient_id = ?)
             ORDER BY timestamp DESC
             LIMIT ?
-            """,
-            (user_id, contact_id, contact_id, user_id, datetime.now(), limit),
-        )
+        """, (user_id, contact_id, contact_id, user_id, limit))
+        
         rows = cursor.fetchall()
         conn.close()
-        messages: List[Message] = []
+        
+        messages = []
         for row in rows:
-            reactions = json.loads(row[10]) if row[10] else {}
-            messages.append(
-                Message(
-                    message_id=row[0],
-                    sender_id=row[1],
-                    recipient_id=row[2],
-                    group_id=row[3],
-                    content=row[4],
-                    message_type=MessageType(row[5]),
-                    status=MessageStatus(row[6]),
-                    timestamp=row[7],
-                    edited_at=row[8],
-                    reply_to=row[9],
-                    reactions=reactions,
-                    is_deleted=bool(row[11]),
-                    expires_at=row[12],
-                )
-            )
-        return messages[::-1]
-
-    # ---------- Groups ----------
-    def create_group(
-        self, name: str, description: str, creator_id: str, member_ids: List[str]
-    ) -> Group:
+            reactions = json.loads(row[9]) if row[9] else {}
+            messages.append(Message(
+                message_id=row[0],
+                sender_id=row[1],
+                recipient_id=row[2],
+                content=row[3],
+                message_type=MessageType(row[4]),
+                status=MessageStatus(row[5]),
+                timestamp=row[6],
+                edited_at=row[7],
+                reply_to=row[8],
+                reactions=reactions,
+                is_deleted=row[10]
+            ))
+        
+        return messages[::-1]  # Reverse to get chronological order
+    
+    def create_group(self, name: str, description: str, creator_id: str, 
+                    member_ids: List[str]) -> Group:
+        """Create a new group chat"""
         group_id = str(uuid.uuid4())
         created_at = datetime.now()
-        conn = self._connect()
+        
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        
+        cursor.execute("""
             INSERT INTO groups (
-                group_id, name, description, creator_id, admin_ids, member_ids, created_at, settings
+                group_id, name, description, creator_id, 
+                admin_ids, member_ids, created_at, settings
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                group_id,
-                name,
-                description,
-                creator_id,
-                json.dumps([creator_id]),
-                json.dumps(list(set([creator_id] + member_ids))),
-                created_at,
-                json.dumps({}),
-            ),
-        )
+        """, (
+            group_id, name, description, creator_id,
+            json.dumps([creator_id]), json.dumps(member_ids),
+            created_at, json.dumps({})
+        ))
+        
         conn.commit()
         conn.close()
+        
         return Group(
             group_id=group_id,
             name=name,
@@ -655,246 +677,253 @@ class DatabaseManager:
             avatar=None,
             creator_id=creator_id,
             admin_ids=[creator_id],
-            member_ids=list(set([creator_id] + member_ids)),
+            member_ids=member_ids,
             created_at=created_at,
-            settings={},
+            settings={}
         )
-
-    def get_group(self, group_id: str) -> Optional[Group]:
-        conn = self._connect()
+    
+    def get_user_contacts(self, user_id: str) -> List[Dict]:
+        """Get user's contact list"""
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT group_id, name, description, avatar, creator_id, admin_ids, member_ids, created_at, settings FROM groups WHERE group_id = ?",
-            (group_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if not row:
-            return None
-        return Group(
-            group_id=row[0],
-            name=row[1],
-            description=row[2] or "",
-            avatar=row[3],
-            creator_id=row[4],
-            admin_ids=json.loads(row[5] or "[]"),
-            member_ids=json.loads(row[6] or "[]"),
-            created_at=row[7],
-            settings=json.loads(row[8] or "{}"),
-        )
-
-    def get_user_groups(self, user_id: str) -> List[Group]:
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM groups")
+        
+        cursor.execute("""
+            SELECT c.contact_id, u.username, u.avatar, u.status_message, 
+                   u.online_status, c.nickname, c.is_favorite, c.is_blocked
+            FROM contacts c
+            JOIN users u ON c.contact_id = u.user_id
+            WHERE c.user_id = ? AND c.is_blocked = FALSE
+            ORDER BY c.is_favorite DESC, u.username
+        """, (user_id,))
+        
         rows = cursor.fetchall()
         conn.close()
-        groups: List[Group] = []
+        
+        contacts = []
         for row in rows:
-            member_ids = json.loads(row[6] or "[]")
-            if user_id in member_ids:
-                groups.append(
-                    Group(
-                        group_id=row[0],
-                        name=row[1],
-                        description=row[2] or "",
-                        avatar=row[3],
-                        creator_id=row[4],
-                        admin_ids=json.loads(row[5] or "[]"),
-                        member_ids=member_ids,
-                        created_at=row[7],
-                        settings=json.loads(row[8] or "{}"),
-                    )
-                )
-        return groups
+            contacts.append({
+                'user_id': row[0],
+                'username': row[1],
+                'avatar': row[2],
+                'status_message': row[3],
+                'online_status': row[4],
+                'nickname': row[5],
+                'is_favorite': row[6],
+                'is_blocked': row[7]
+            })
+        
+        return contacts
 
-    def get_group_messages(self, group_id: str, limit: int = 100) -> List[Message]:
-        conn = self._connect()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT message_id, sender_id, recipient_id, group_id, content, message_type,
-                   status, timestamp, edited_at, reply_to, reactions, is_deleted, expires_at
-            FROM messages
-            WHERE group_id = ? AND (expires_at IS NULL OR expires_at > ?)
-            ORDER BY timestamp DESC
-            LIMIT ?
-            """,
-            (group_id, datetime.now(), limit),
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        out: List[Message] = []
-        for row in rows:
-            out.append(
-                Message(
-                    message_id=row[0],
-                    sender_id=row[1],
-                    recipient_id=row[2],
-                    group_id=row[3],
-                    content=row[4],
-                    message_type=MessageType(row[5]),
-                    status=MessageStatus(row[6]),
-                    timestamp=row[7],
-                    edited_at=row[8],
-                    reply_to=row[9],
-                    reactions=json.loads(row[10] or "{}"),
-                    is_deleted=bool(row[11]),
-                    expires_at=row[12],
-                )
-            )
-        return out[::-1]
-
-# =============================
 # Authentication Manager
-# =============================
 class AuthManager:
     def __init__(self):
-        self.secret_key = os.getenv("CHATFUSION_SECRET", "change-me-in-prod")
-
+        self.secret_key = "your-secret-key-here"  # In production, use environment variable
+    
     def generate_token(self, user: User) -> str:
+        """Generate JWT token for user"""
         payload = {
-            "user_id": user.user_id,
-            "username": user.username,
-            "exp": datetime.utcnow() + timedelta(hours=24),
+            'user_id': user.user_id,
+            'username': user.username,
+            'exp': datetime.utcnow() + timedelta(hours=24)
         }
-        return jwt.encode(payload, self.secret_key, algorithm="HS256")
-
-    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
+        return jwt.encode(payload, self.secret_key, algorithm='HS256')
+    
+    def verify_token(self, token: str) -> Optional[Dict]:
+        """Verify JWT token"""
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=["HS256"])
+            payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
             return payload
         except jwt.ExpiredSignatureError:
             return None
         except jwt.InvalidTokenError:
             return None
 
-# =============================
-# Media Handler (mock)
-# =============================
+# Media Handler
 class MediaHandler:
     @staticmethod
     def process_image(image_data: bytes) -> str:
+        """Process and optimize image"""
+        # In production, implement image compression and upload to cloud storage
+        # Return URL or base64 encoded string
         return base64.b64encode(image_data).decode()
-
+    
     @staticmethod
     def process_video(video_data: bytes) -> str:
+        """Process and optimize video"""
+        # In production, implement video compression and upload to cloud storage
         return base64.b64encode(video_data).decode()
-
+    
     @staticmethod
     def process_audio(audio_data: bytes) -> str:
+        """Process audio/voice messages"""
         return base64.b64encode(audio_data).decode()
 
-# =============================
-# Real-time Handler (simulated)
-# =============================
+# Real-time Communication Handler (WebSocket simulation)
 class RealtimeHandler:
     def __init__(self):
-        self.connections: Dict[str, Dict[str, Any]] = {}
-        self.typing_users: Dict[str, List[str]] = {}
-
+        self.connections = {}
+        self.typing_users = {}
+    
     def connect_user(self, user_id: str):
-        self.connections[user_id] = {"status": UserStatus.ONLINE, "last_activity": datetime.now()}
-
+        """Connect user to real-time system"""
+        self.connections[user_id] = {
+            'status': UserStatus.ONLINE,
+            'last_activity': datetime.now()
+        }
+    
     def disconnect_user(self, user_id: str):
+        """Disconnect user from real-time system"""
         if user_id in self.connections:
             del self.connections[user_id]
-
+    
     def send_typing_indicator(self, user_id: str, recipient_id: str):
+        """Send typing indicator"""
         if recipient_id not in self.typing_users:
             self.typing_users[recipient_id] = []
-        if user_id not in self.typing_users[recipient_id]:
-            self.typing_users[recipient_id].append(user_id)
+        self.typing_users[recipient_id].append(user_id)
+        
+        # Auto-remove after 3 seconds (simulated)
+        # In production, use actual timer/scheduler
+    
+    def broadcast_message(self, message: Message):
+        """Broadcast message to recipients"""
+        # In production, use WebSocket to send real-time updates
+        pass
 
-    def clear_typing(self, recipient_id: str):
-        self.typing_users.pop(recipient_id, None)
-
-# =============================
 # UI Components
-# =============================
 class UIComponents:
     @staticmethod
     def render_message(message: Message, current_user_id: str, users: Dict[str, User]):
+        """Render a single message bubble"""
         is_sent = message.sender_id == current_user_id
         sender = users.get(message.sender_id)
-        message_class = "message-sent" if is_sent else "message-received"
-        name_prefix = "" if is_sent else (f"**{sender.username}**\n" if sender else "")
-        body = name_prefix + (message.content if message.message_type == MessageType.TEXT else f"[{message.message_type.value.upper()}]")
-        st.markdown(
-            f'<div class="message-bubble {message_class}">{body}</div>',
-            unsafe_allow_html=True,
-        )
-        status_icon = {MessageStatus.SENT: "✓", MessageStatus.DELIVERED: "✓✓", MessageStatus.READ: "✓✓"}.get(message.status, "")
-        time_str = message.timestamp.strftime("%H:%M")
-        st.caption(f"{time_str} {status_icon}")
-        if message.reactions:
-            reaction_html = '<div class="message-reactions">'
-            for emoji, users_list in message.reactions.items():
-                reaction_html += f'<span class="reaction-chip">{emoji} {len(users_list)}</span>'
-            reaction_html += "</div>"
-            st.markdown(reaction_html, unsafe_allow_html=True)
-
+        
+        # Message alignment
+        col1, col2, col3 = st.columns([1, 8, 1] if is_sent else [1, 8, 1])
+        
+        with col2:
+            # Message container
+            message_class = "message-sent" if is_sent else "message-received"
+            
+            # Sender name (for groups)
+            if not is_sent and sender:
+                st.caption(f"**{sender.username}**")
+            
+            # Message content based on type
+            if message.message_type == MessageType.TEXT:
+                st.markdown(
+                    f'<div class="message-bubble {message_class}">{message.content}</div>',
+                    unsafe_allow_html=True
+                )
+            elif message.message_type == MessageType.IMAGE:
+                st.image(message.content, width=300)
+            elif message.message_type == MessageType.FILE:
+                st.download_button(
+                    label=f"📎 {message.content}",
+                    data=b"",  # File data would be here
+                    file_name=message.content
+                )
+            
+            # Message metadata
+            status_icon = {
+                MessageStatus.SENT: "✓",
+                MessageStatus.DELIVERED: "✓✓",
+                MessageStatus.READ: "✓✓"
+            }.get(message.status, "")
+            
+            time_str = message.timestamp.strftime("%H:%M")
+            st.caption(f"{time_str} {status_icon}")
+            
+            # Reactions
+            if message.reactions:
+                reaction_html = '<div class="message-reactions">'
+                for emoji, users in message.reactions.items():
+                    reaction_html += f'<span class="reaction-chip">{emoji} {len(users)}</span>'
+                reaction_html += '</div>'
+                st.markdown(reaction_html, unsafe_allow_html=True)
+    
     @staticmethod
     def render_chat_list(contacts: List[Dict], active_chat: Optional[str]):
+        """Render chat list in sidebar"""
         st.sidebar.markdown("### 💬 Chats")
+        
         search = st.sidebar.text_input("🔍 Search conversations", key="chat_search")
-        filtered_contacts = [c for c in contacts if (search.lower() in c["username"].lower())] if search else contacts
+        
+        # Filter contacts based on search
+        filtered_contacts = contacts
+        if search:
+            filtered_contacts = [
+                c for c in contacts 
+                if search.lower() in c['username'].lower()
+            ]
+        
+        # Render each chat item
         for contact in filtered_contacts:
             status_class = f"status-{contact['online_status']}"
-            active_class = "active" if contact["user_id"] == active_chat else ""
+            active_class = "active" if contact['user_id'] == active_chat else ""
+            
+            # Create chat item HTML
             chat_html = f"""
             <div class="chat-list-item {active_class}">
                 <span class="user-status {status_class}"></span>
                 <div>
-                    <strong>{contact['username']}</strong><br>
+                    <strong>{contact['username']}</strong>
+                    <br>
                     <small>{contact['status_message']}</small>
                 </div>
             </div>
             """
-            st.sidebar.markdown(chat_html, unsafe_allow_html=True)
-            if st.sidebar.button(f"Open • {contact['username']}", key=f"chat_{contact['user_id']}", use_container_width=True):
-                st.session_state.active_chat = contact["user_id"]
+            
+            if st.sidebar.button(
+                contact['username'], 
+                key=f"chat_{contact['user_id']}",
+                use_container_width=True
+            ):
+                st.session_state.active_chat = contact['user_id']
                 st.rerun()
-
+    
     @staticmethod
     def render_story_bar(stories: List[Story], users: Dict[str, User]):
+        """Render stories/status bar"""
         st.markdown("### 📸 Stories")
+        
         story_html = '<div class="story-container">'
+        
+        # Add user's own story
         story_html += """
         <div class="story-item">
             <div class="story-avatar">➕</div>
             <small>Your Story</small>
         </div>
         """
-        for story in stories[:10]:
+        
+        # Add other stories
+        for story in stories[:10]:  # Limit to 10 stories
             user = users.get(story.user_id)
             if user:
                 story_html += f"""
-                <div class=\"story-item\">
-                    <div class=\"story-avatar\">👤</div>
+                <div class="story-item">
+                    <div class="story-avatar">👤</div>
                     <small>{user.username}</small>
                 </div>
                 """
-        story_html += "</div>"
+        
+        story_html += '</div>'
         st.markdown(story_html, unsafe_allow_html=True)
-
+    
     @staticmethod
-    def render_typing_indicator(typing_users: List[str], users: Dict[str, User]):
+    def render_typing_indicator(typing_users: List[str]):
+        """Render typing indicator"""
         if typing_users:
-            names = ", ".join([users.get(uid).username if users.get(uid) else "Someone" for uid in typing_users])
-            st.caption(f"{names} is typing…")
-            st.markdown(
-                """
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.markdown("""
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            """, unsafe_allow_html=True)
 
-# =============================
 # Main Application
-# =============================
 class ChatApplication:
     def __init__(self):
         self.db = DatabaseManager()
@@ -902,390 +931,545 @@ class ChatApplication:
         self.media = MediaHandler()
         self.realtime = RealtimeHandler()
         self.ui = UIComponents()
+        
+        # Initialize session state
         self.init_session_state()
-
-    # ---------- Session State ----------
+    
     def init_session_state(self):
-        if "user" not in st.session_state:
-            st.session_state.user: Optional[User] = None
-        if "token" not in st.session_state:
+        """Initialize Streamlit session state"""
+        if 'user' not in st.session_state:
+            st.session_state.user = None
+        if 'token' not in st.session_state:
             st.session_state.token = None
-        if "active_chat" not in st.session_state:
-            st.session_state.active_chat: Optional[str] = None
-        if "active_group" not in st.session_state:
-            st.session_state.active_group: Optional[str] = None
-        if "active_page" not in st.session_state:
-            st.session_state.active_page = "Chats"
-        if "messages" not in st.session_state:
-            st.session_state.messages: Dict[str, List[Message]] = {}
-        if "users_cache" not in st.session_state:
-            st.session_state.users_cache: Dict[str, User] = {}
-        if "stories" not in st.session_state:
-            st.session_state.stories: List[Story] = []
-        if "typing" not in st.session_state:
-            st.session_state.typing: Dict[str, List[str]] = {}
-
-    # ---------- Auth UI ----------
-    def auth_ui(self):
-        st.markdown("## 🔐 Sign in to ChatFusion Pro")
-        tab_login, tab_signup = st.tabs(["Login", "Create account"])
-        with tab_login:
-            with st.form("login_form", clear_on_submit=False):
-                username = st.text_input("Username")
-                password = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Sign in")
-                if submitted:
+        if 'active_chat' not in st.session_state:
+            st.session_state.active_chat = None
+        if 'active_page' not in st.session_state:
+            st.session_state.active_page = 'chats'
+        if 'messages' not in st.session_state:
+            st.session_state.messages = {}
+        if 'contacts' not in st.session_state:
+            st.session_state.contacts = []
+        if 'stories' not in st.session_state:
+            st.session_state.stories = []
+        if 'groups' not in st.session_state:
+            st.session_state.groups = []
+        if 'typing_users' not in st.session_state:
+            st.session_state.typing_users = []
+        if 'show_media_viewer' not in st.session_state:
+            st.session_state.show_media_viewer = False
+        if 'current_media' not in st.session_state:
+            st.session_state.current_media = None
+    
+    def run(self):
+        """Main application entry point"""
+        if st.session_state.user is None:
+            self.render_auth_page()
+        else:
+            self.render_main_app()
+    
+    def render_auth_page(self):
+        """Render authentication (login/register) page"""
+        st.title("🚀 Welcome to ChatFusion Pro")
+        st.markdown("---")
+        
+        tab1, tab2 = st.tabs(["Login", "Register"])
+        
+        with tab1:
+            self.render_login_form()
+        
+        with tab2:
+            self.render_register_form()
+    
+    def render_login_form(self):
+        """Render login form"""
+        st.subheader("🔐 Login to your account")
+        
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            remember_me = st.checkbox("Remember me")
+            submit_button = st.form_submit_button("Login")
+            
+            if submit_button:
+                if username and password:
                     user = self.db.authenticate_user(username, password)
                     if user:
                         st.session_state.user = user
                         st.session_state.token = self.auth.generate_token(user)
                         self.realtime.connect_user(user.user_id)
-                        st.success("Logged in!")
+                        st.success("Login successful!")
                         st.rerun()
                     else:
-                        st.error("Invalid credentials.")
-        with tab_signup:
-            with st.form("signup_form", clear_on_submit=True):
-                username = st.text_input("Username", help="Unique handle")
-                email = st.text_input("Email")
-                password = st.text_input("Password", type="password")
-                confirm = st.text_input("Confirm Password", type="password")
-                submitted = st.form_submit_button("Create account")
-                if submitted:
-                    if password != confirm:
-                        st.error("Passwords do not match.")
-                    elif len(username) < 3:
-                        st.error("Username too short.")
-                    else:
-                        user = self.db.create_user(username, email, password)
-                        if user:
-                            st.success("Account created. Please login.")
-                        else:
-                            st.error("Username or email already exists.")
-
-    # ---------- Helpers ----------
-    def _load_contacts(self) -> List[Dict[str, Any]]:
-        if not st.session_state.user:
-            return []
-        return self.db.get_user_contacts(st.session_state.user.user_id)
-
-    def _cache_user(self, user: Optional[User]):
-        if user and user.user_id not in st.session_state.users_cache:
-            st.session_state.users_cache[user.user_id] = user
-
-    # ---------- Main UI ----------
-    def main_ui(self):
-        user = st.session_state.user
-        if not user:
-            self.auth_ui()
-            return
-
-        # Sidebar
-        with st.sidebar:
-            st.markdown(f"### 👋 Hello, **{user.username}**")
-            page = st.radio(
-                "Navigate",
-                ["Chats", "Groups", "Contacts", "Stories", "Profile", "Settings"],
-                index=["Chats", "Groups", "Contacts", "Stories", "Profile", "Settings"].index(st.session_state.active_page),
-            )
-            st.session_state.active_page = page
-            st.divider()
-            contacts = self._load_contacts()
-            self.ui.render_chat_list(contacts, st.session_state.active_chat)
-            st.divider()
-            if st.button("🚪 Logout", use_container_width=True):
-                self.realtime.disconnect_user(user.user_id)
-                for k in ["user", "token", "active_chat", "active_group"]:
-                    st.session_state[k] = None
-                st.success("Logged out.")
-                st.rerun()
-
-        # Main area
-        if page == "Chats":
-            self.page_chats()
-        elif page == "Groups":
-            self.page_groups()
-        elif page == "Contacts":
-            self.page_contacts()
-        elif page == "Stories":
-            self.page_stories()
-        elif page == "Profile":
-            self.page_profile()
-        elif page == "Settings":
-            self.page_settings()
-
-    # ---------- Pages ----------
-    
-    class ChatApplication:
-    class ChatApplication:
-    def __init__(self):
-        self.db = DatabaseManager()
-        self.auth = AuthManager()
-        self.media = MediaHandler()
-        self.realtime = RealtimeHandler()
-        self.ui = UIComponents()
-        self.init_session_state()
-
-    def main_ui(self):
-        """Main navigation for the app"""
-        if st.session_state.active_page == "chats":
-            self.page_chats()
-        elif st.session_state.active_page == "groups":
-            self.page_groups()
-        elif st.session_state.active_page == "stories":
-            self.page_stories()
-        elif st.session_state.active_page == "settings":
-            self.page_settings()
-    def page_chats(self):
-        st.title("💬 Chats")
-
-        user: User = st.session_state.user
-        active = st.session_state.active_chat
-
-        # 🔄 Auto-refresh every 3 seconds
-        from streamlit_autorefresh import st_autorefresh
-        st_autorefresh(interval=3000, key="chatrefresh")
-
-        # Sidebar chat list
-        contacts = self.db.get_user_contacts(user.user_id)
-        self.ui.render_chat_list(contacts, active_chat=active)
-
-        # If no active chat, show a message
-        if not active:
-            st.info("👈 Select a chat from the sidebar to start messaging.")
-            return
-
-        # Load messages
-        messages = self.db.get_messages(user.user_id, active, limit=50)
-
-        # Render chat header
-        contact = next((c for c in contacts if c['user_id'] == active), None)
-        if contact:
-            st.markdown(f"### {contact['username']}")
-
-        # Show messages
-        users_dict = {c['user_id']: User(**c) for c in contacts if isinstance(c, dict)}
-        for msg in messages:
-            self.ui.render_message(msg, current_user_id=user.user_id, users=users_dict)
-
-        st.markdown("---")
-
-        # === Input area ===
-        if "send_clicked" not in st.session_state:
-            st.session_state.send_clicked = False
-
-        txt = st.text_input("Type your message...", key="chat_input")
-        minutes = st.slider("⏳ Message expiry (minutes)", 0, 60, 0)
-
-        if st.button("Send"):
-            st.session_state.send_clicked = True
-
-        if st.session_state.send_clicked and txt.strip():
-            self.db.send_message(
-                sender_id=user.user_id,
-                recipient_id=active,
-                content=txt,
-                message_type=MessageType.TEXT,
-            )
-            st.session_state.send_clicked = False  # reset
-            st.rerun()
-def __init__(self):
-        self.db = DatabaseManager()
-        self.auth = AuthManager()
-        self.media = MediaHandler()
-        self.realtime = RealtimeHandler()
-        self.ui = UIComponents()
-        self.init_session_state()
-
-    def page_chats(self):   # 👈 keep this indented under the class
-        st.title("💬 Chats")
-
-        user: User = st.session_state.user
-        active = st.session_state.active_chat
-
-        # 🔄 Auto-refresh every 3 seconds
-        from streamlit_autorefresh import st_autorefresh
-        st_autorefresh(interval=3000, key="chatrefresh")
-
-        # Sidebar chat list
-        contacts = self.db.get_user_contacts(user.user_id)
-        self.ui.render_chat_list(contacts, active_chat=active)
-
-        # If no active chat, show a message
-        if not active:
-            st.info("👈 Select a chat from the sidebar to start messaging.")
-            return
-
-        # Load messages
-        messages = self.db.get_messages(user.user_id, active, limit=50)
-
-        # Render chat header
-        contact = next((c for c in contacts if c['user_id'] == active), None)
-        if contact:
-            st.markdown(f"### {contact['username']}")
-
-        # Show messages
-        users_dict = {c['user_id']: User(**c) for c in contacts if isinstance(c, dict)}
-        for msg in messages:
-            self.ui.render_message(msg, current_user_id=user.user_id, users=users_dict)
-
-        st.markdown("---")
-
-        # === Input area ===
-        if "send_clicked" not in st.session_state:
-            st.session_state.send_clicked = False
-
-        txt = st.text_input("Type your message...", key="chat_input")
-        minutes = st.slider("⏳ Message expiry (minutes)", 0, 60, 0)
-
-        if st.button("Send"):
-            st.session_state.send_clicked = True
-
-        if st.session_state.send_clicked and txt.strip():
-            self.db.send_message(
-                sender_id=user.user_id,
-                recipient_id=active,
-                content=txt,
-                message_type=MessageType.TEXT,
-            )
-            st.session_state.send_clicked = False  # reset
-            st.rerun()
-
-
-        with col_right:
-            st.markdown("### ⚙️ Chat Tools")
-            new_username = st.text_input("Add contact by username")
-            if st.button("Add", use_container_width=True) and new_username:
-                target = self.db.get_user_by_username(new_username)
-                if target:
-                    self.db.add_contact(user.user_id, target.user_id)
-                    st.success("Added contact.")
-                    st.rerun()
+                        st.error("Invalid username or password")
                 else:
-                    st.error("No user with that username.")
-            st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-            st.write("**Quick info**")
+                    st.error("Please fill in all fields")
+    
+    def render_register_form(self):
+        """Render registration form"""
+        st.subheader("📝 Create new account")
+        
+        with st.form("register_form"):
+            username = st.text_input("Choose a username")
+            email = st.text_input("Email address")
+            password = st.text_input("Password", type="password")
+            confirm_password = st.text_input("Confirm password", type="password")
+            accept_terms = st.checkbox("I accept the terms and conditions")
+            submit_button = st.form_submit_button("Create Account")
+            
+            if submit_button:
+                if not all([username, email, password, confirm_password]):
+                    st.error("Please fill in all fields")
+                elif password != confirm_password:
+                    st.error("Passwords do not match")
+                elif len(password) < 6:
+                    st.error("Password must be at least 6 characters")
+                elif not accept_terms:
+                    st.error("Please accept the terms and conditions")
+                else:
+                    user = self.db.create_user(username, email, password)
+                    if user:
+                        st.success("Account created successfully! Please login.")
+                    else:
+                        st.error("Username or email already exists")
+    
+    def render_main_app(self):
+        """Render main chat application"""
+        # Load user data
+        self.load_user_data()
+        
+        # Sidebar navigation
+        self.render_sidebar()
+        
+        # Main content area
+        if st.session_state.active_page == 'chats':
+            self.render_chat_page()
+        elif st.session_state.active_page == 'stories':
+            self.render_stories_page()
+        elif st.session_state.active_page == 'groups':
+            self.render_groups_page()
+        elif st.session_state.active_page == 'settings':
+            self.render_settings_page()
+        elif st.session_state.active_page == 'profile':
+            self.render_profile_page()
+    
+    def load_user_data(self):
+        """Load user contacts, messages, etc."""
+        if st.session_state.user:
+            # Load contacts
+            st.session_state.contacts = self.db.get_user_contacts(st.session_state.user.user_id)
+            
+            # Load messages for active chat
             if st.session_state.active_chat:
-                u = self.db.get_user_by_id(st.session_state.active_chat)
-                if u:
-                    st.json({"username": u.username, "status": u.online_status.value, "bio": u.status_message})
-
-    def page_groups(self):
-        user = st.session_state.user
-        st.markdown("# 👥 Groups")
-        colA, colB = st.columns([2, 3], gap="large")
-        with colA:
-            groups = self.db.get_user_groups(user.user_id)
-            options = {g.name: g.group_id for g in groups}
-            chosen = st.selectbox("Your groups", list(options.keys()) if options else ["(none)"])
-            if options:
-                st.session_state.active_group = options[chosen]
-            with st.expander("➕ Create group"):
-                g_name = st.text_input("Group name")
-                g_desc = st.text_area("Description")
-                invite_username = st.text_input("Invite by username (optional)")
-                if st.button("Create") and g_name:
-                    members = []
-                    if invite_username:
-                        u = self.db.get_user_by_username(invite_username)
-                        if u:
-                            members.append(u.user_id)
-                    grp = self.db.create_group(g_name, g_desc, user.user_id, members)
-                    st.success(f"Group '{grp.name}' created.")
+                messages = self.db.get_messages(
+                    st.session_state.user.user_id, 
+                    st.session_state.active_chat
+                )
+                st.session_state.messages[st.session_state.active_chat] = messages
+    
+    def render_sidebar(self):
+        """Render sidebar with navigation and chat list"""
+        with st.sidebar:
+            # User profile section
+            st.markdown("### 👤 Profile")
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.markdown("👤")  # Avatar placeholder
+            with col2:
+                st.markdown(f"**{st.session_state.user.username}**")
+                st.caption(st.session_state.user.status_message)
+            
+            st.markdown("---")
+            
+            # Navigation menu
+            st.markdown("### 🧭 Navigation")
+            pages = {
+                'chats': '💬 Chats',
+                'stories': '📸 Stories',
+                'groups': '👥 Groups',
+                'profile': '👤 Profile',
+                'settings': '⚙️ Settings'
+            }
+            
+            for page_key, page_name in pages.items():
+                if st.button(page_name, key=f"nav_{page_key}", use_container_width=True):
+                    st.session_state.active_page = page_key
                     st.rerun()
-        with colB:
-            gid = st.session_state.active_group
-            if not gid:
-                st.info("Select or create a group.")
-                return
-            grp = self.db.get_group(gid)
-            if not grp:
-                st.error("Group not found.")
-                return
-            st.markdown(f"### {grp.name}")
-            st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-            # preload users in cache
-            for uid in grp.member_ids:
-                self._cache_user(self.db.get_user_by_id(uid))
-            msgs = self.db.get_group_messages(gid, limit=300)
-            for m in msgs:
-                self.ui.render_message(m, user.user_id, st.session_state.users_cache)
-            st.markdown('</div>', unsafe_allow_html=True)
-            with st.form("send_group_form", clear_on_submit=True):
-                txt = st.text_input("Message group…")
-                expire = st.selectbox("Disappear in", ["Never", "10 min", "60 min", "24 h"], index=0)
-                send = st.form_submit_button("Send")
-                if send and txt:
-                    minutes = None
-                    if expire == "10 min":
-                        minutes = 10
-                    elif expire == "60 min":
-                        minutes = 60
-                    elif expire == "24 h":
-                        minutes = 1440
-                    self.db.send_message(
-                        sender_id=user.user_id,
-                        content=txt,
-                        message_type=MessageType.TEXT,
-                        group_id=gid,
-                        expires_minutes=minutes,
+            
+            st.markdown("---")
+            
+            # Chat list (only show on chats page)
+            if st.session_state.active_page == 'chats':
+                self.ui.render_chat_list(st.session_state.contacts, st.session_state.active_chat)
+            
+            st.markdown("---")
+            
+            # Logout button
+            if st.button("🚪 Logout", use_container_width=True):
+                self.logout()
+    
+    def render_chat_page(self):
+        """Render main chat interface"""
+        if not st.session_state.active_chat:
+            # Welcome screen when no chat is selected
+            st.markdown("""
+            <div class="chat-container" style="text-align: center; padding: 100px 20px;">
+                <h1>💬 Welcome to ChatFusion Pro</h1>
+                <p>Select a chat from the sidebar to start messaging</p>
+                <p>Features include:</p>
+                <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
+                    <li>Real-time messaging</li>
+                    <li>Media sharing (images, videos, files)</li>
+                    <li>Voice messages</li>
+                    <li>Stories and status updates</li>
+                    <li>Group chats</li>
+                    <li>Message reactions</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            return
+        
+        # Get active chat contact info
+        active_contact = next(
+            (c for c in st.session_state.contacts if c['user_id'] == st.session_state.active_chat), 
+            None
+        )
+        
+        if not active_contact:
+            st.error("Contact not found")
+            return
+        
+        # Chat header
+        col1, col2, col3 = st.columns([1, 8, 1])
+        with col2:
+            st.markdown(f"""
+            <div class="group-header">
+                <h3>💬 {active_contact['username']}</h3>
+                <p><span class="user-status status-{active_contact['online_status']}"></span>
+                   {active_contact['online_status'].title()} • {active_contact['status_message']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Stories bar
+        if st.session_state.stories:
+            self.ui.render_story_bar(st.session_state.stories, {})
+        
+        # Messages area
+        messages_container = st.container()
+        with messages_container:
+            messages = st.session_state.messages.get(st.session_state.active_chat, [])
+            if messages:
+                for message in messages:
+                    self.ui.render_message(
+                        message, 
+                        st.session_state.user.user_id, 
+                        {st.session_state.user.user_id: st.session_state.user}
                     )
-                    st.rerun()
-
-    def page_contacts(self):
-        user = st.session_state.user
-        st.markdown("# 📇 Contacts")
-        contacts = self.db.get_user_contacts(user.user_id)
-        if not contacts:
-            st.info("You have no contacts yet. Add by username below.")
-        df = pd.DataFrame(contacts)
-        if not df.empty:
-            st.dataframe(df[["username", "status_message", "online_status", "is_favorite"]], use_container_width=True)
-        st.markdown("### ➕ Add contact")
-        username = st.text_input("Username to add")
-        if st.button("Add contact") and username:
-            other = self.db.get_user_by_username(username)
-            if other:
-                self.db.add_contact(user.user_id, other.user_id)
-                st.success("Contact added.")
-                st.rerun()
             else:
-                st.error("User not found.")
-
-    def page_stories(self):
-        st.markdown("# 📸 Stories")
-        self.ui.render_story_bar(st.session_state.stories, st.session_state.users_cache)
-        st.info("Stories UI is a visual placeholder in this MVP.")
-
-    def page_profile(self):
-        user = st.session_state.user
-        st.markdown("# 👤 Profile")
+                st.info("No messages yet. Start the conversation!")
+        
+        # Typing indicator
+        if st.session_state.typing_users:
+            self.ui.render_typing_indicator(st.session_state.typing_users)
+        
+        # Message input area
+        self.render_message_input()
+    
+    def render_message_input(self):
+        """Render message input area with various options"""
+        st.markdown("---")
+        
+        # File upload options
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 8])
+        
+        with col1:
+            uploaded_image = st.file_uploader("📷", type=['png', 'jpg', 'jpeg'], key="image_upload")
+            if uploaded_image:
+                self.handle_media_upload(uploaded_image, MessageType.IMAGE)
+        
+        with col2:
+            uploaded_video = st.file_uploader("🎥", type=['mp4', 'avi', 'mov'], key="video_upload")
+            if uploaded_video:
+                self.handle_media_upload(uploaded_video, MessageType.VIDEO)
+        
+        with col3:
+            uploaded_file = st.file_uploader("📎", key="file_upload")
+            if uploaded_file:
+                self.handle_media_upload(uploaded_file, MessageType.FILE)
+        
+        with col4:
+            if st.button("🎤"):
+                st.info("Voice recording feature - Would integrate with browser audio API")
+        
+        # Text message input
+        message_input = st.text_input(
+            "Type a message...", 
+            key="message_input",
+            placeholder="Type your message here..."
+        )
+        
+        # Send button
+        col1, col2 = st.columns([8, 1])
+        with col2:
+            if st.button("Send", type="primary") or (message_input and st.session_state.get('send_message', False)):
+                if message_input.strip():
+                    self.send_message(message_input)
+                    st.session_state.message_input = ""
+                    st.rerun()
+        
+        # Quick reactions
+        st.markdown("Quick reactions:")
+        reaction_cols = st.columns(8)
+        reactions = ["👍", "❤️", "😂", "😮", "😢", "😡", "👏", "🔥"]
+        for i, emoji in enumerate(reactions):
+            with reaction_cols[i]:
+                if st.button(emoji, key=f"reaction_{emoji}"):
+                    # Add reaction to last message
+                    pass
+    
+    def handle_media_upload(self, uploaded_file, media_type: MessageType):
+        """Handle media file uploads"""
+        if uploaded_file:
+            file_data = uploaded_file.read()
+            processed_data = None
+            
+            if media_type == MessageType.IMAGE:
+                processed_data = self.media.process_image(file_data)
+            elif media_type == MessageType.VIDEO:
+                processed_data = self.media.process_video(file_data)
+            else:
+                processed_data = self.media.process_audio(file_data)
+            
+            # Send media message
+            message = self.db.send_message(
+                st.session_state.user.user_id,
+                st.session_state.active_chat,
+                uploaded_file.name,  # Store filename
+                media_type
+            )
+            
+            # Update local messages
+            if st.session_state.active_chat not in st.session_state.messages:
+                st.session_state.messages[st.session_state.active_chat] = []
+            
+            st.session_state.messages[st.session_state.active_chat].append(message)
+            st.success(f"{media_type.value.title()} sent!")
+    
+    def send_message(self, content: str):
+        """Send a text message"""
+        if content.strip() and st.session_state.active_chat:
+            message = self.db.send_message(
+                st.session_state.user.user_id,
+                st.session_state.active_chat,
+                content
+            )
+            
+            # Update local messages
+            if st.session_state.active_chat not in st.session_state.messages:
+                st.session_state.messages[st.session_state.active_chat] = []
+            
+            st.session_state.messages[st.session_state.active_chat].append(message)
+            
+            # Broadcast to real-time handler
+            self.realtime.broadcast_message(message)
+    
+    def render_stories_page(self):
+        """Render stories/status page"""
+        st.title("📸 Stories")
+        st.markdown("---")
+        
+        # Create story section
+        with st.expander("➕ Create New Story", expanded=False):
+            story_text = st.text_area("What's on your mind?", placeholder="Share your story...")
+            story_image = st.file_uploader("Add image", type=['png', 'jpg', 'jpeg'])
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                expires_in = st.selectbox("Expires in", ["24 hours", "1 week", "Never"])
+            with col2:
+                is_highlight = st.checkbox("Add to highlights")
+            
+            if st.button("Share Story"):
+                if story_text or story_image:
+                    st.success("Story shared!")
+                else:
+                    st.error("Please add some content to your story")
+        
+        # Display existing stories
+        st.markdown("### Your Stories")
+        if not st.session_state.stories:
+            st.info("No stories yet. Create your first story!")
+        else:
+            for story in st.session_state.stories:
+                with st.container():
+                    st.markdown(f"**Story from {story.created_at.strftime('%Y-%m-%d %H:%M')}**")
+                    st.write(story.content)
+                    if story.media_url:
+                        st.image(story.media_url, width=300)
+    
+    def render_groups_page(self):
+        """Render groups page"""
+        st.title("👥 Groups")
+        st.markdown("---")
+        
+        # Create group section
+        with st.expander("➕ Create New Group", expanded=False):
+            group_name = st.text_input("Group Name")
+            group_description = st.text_area("Description")
+            
+            # Member selection (simplified)
+            st.markdown("**Add Members:**")
+            available_contacts = [c['username'] for c in st.session_state.contacts]
+            selected_members = st.multiselect("Select contacts", available_contacts)
+            
+            if st.button("Create Group"):
+                if group_name and selected_members:
+                    # Get member IDs
+                    member_ids = [
+                        c['user_id'] for c in st.session_state.contacts 
+                        if c['username'] in selected_members
+                    ]
+                    
+                    group = self.db.create_group(
+                        group_name, 
+                        group_description, 
+                        st.session_state.user.user_id,
+                        member_ids
+                    )
+                    
+                    st.success(f"Group '{group_name}' created successfully!")
+                else:
+                    st.error("Please provide group name and select at least one member")
+        
+        # Display existing groups
+        st.markdown("### Your Groups")
+        if not st.session_state.groups:
+            st.info("No groups yet. Create or join a group!")
+        else:
+            for group in st.session_state.groups:
+                with st.container():
+                    col1, col2, col3 = st.columns([1, 6, 1])
+                    with col1:
+                        st.markdown("👥")
+                    with col2:
+                        st.markdown(f"**{group.name}**")
+                        st.caption(group.description)
+                        st.caption(f"{len(group.member_ids)} members")
+                    with col3:
+                        if st.button("Open", key=f"group_{group.group_id}"):
+                            st.session_state.active_chat = group.group_id
+                            st.session_state.active_page = 'chats'
+                            st.rerun()
+    
+    def render_profile_page(self):
+        """Render user profile page"""
+        st.title("👤 Profile")
+        st.markdown("---")
+        
+        # Profile editing form
         with st.form("profile_form"):
-            status = st.text_area("Status message", value=user.status_message)
-            visibility = st.selectbox("Online status", [s.value for s in UserStatus], index=[s.value for s in UserStatus].index(user.online_status.value))
-            save = st.form_submit_button("Save profile")
-            if save:
-                conn = self.db._connect()
-                cur = conn.cursor()
-                cur.execute("UPDATE users SET status_message = ?, online_status = ? WHERE user_id = ?", (status, visibility, user.user_id))
-                conn.commit(); conn.close()
-                # update in-memory
-                st.session_state.user = self.db.get_user_by_id(user.user_id)
-                st.success("Profile updated.")
-
-    def page_settings(self):
-        st.markdown("# ⚙️ Settings")
-        with st.expander("Security"):
-            st.checkbox("Enable 2FA (placeholder)")
-            st.text_input("Backup email", value=st.session_state.user.email)
-        with st.expander("Privacy"):
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                st.markdown("### Avatar")
+                st.markdown("👤")  # Placeholder avatar
+                avatar_upload = st.file_uploader("Change avatar", type=['png', 'jpg', 'jpeg'])
+            
+            with col2:
+                st.markdown("### Profile Information")
+                username = st.text_input("Username", value=st.session_state.user.username)
+                email = st.text_input("Email", value=st.session_state.user.email)
+                phone = st.text_input("Phone", value=st.session_state.user.phone or "")
+                status_message = st.text_input(
+                    "Status Message", 
+                    value=st.session_state.user.status_message
+                )
+                
+                online_status = st.selectbox(
+                    "Status",
+                    ["online", "away", "busy", "offline"],
+                    index=["online", "away", "busy", "offline"].index(st.session_state.user.online_status.value)
+                )
+            
+            # Security settings
+            st.markdown("### Security")
+            col1, col2 = st.columns(2)
+            with col1:
+                change_password = st.checkbox("Change password")
+                if change_password:
+                    new_password = st.text_input("New password", type="password")
+                    confirm_password = st.text_input("Confirm password", type="password")
+            
+            with col2:
+                two_factor = st.checkbox(
+                    "Enable two-factor authentication", 
+                    value=st.session_state.user.two_factor_enabled
+                )
+            
+            # Submit button
+            if st.form_submit_button("Update Profile"):
+                st.success("Profile updated successfully!")
+    
+    def render_settings_page(self):
+        """Render settings page"""
+        st.title("⚙️ Settings")
+        st.markdown("---")
+        
+        # Notification settings
+        with st.expander("🔔 Notifications", expanded=True):
+            st.checkbox("Enable push notifications", value=True)
+            st.checkbox("Sound notifications", value=True)
+            st.checkbox("Vibration", value=True)
+            st.selectbox("Notification tone", ["Default", "Bell", "Chime", "Ding"])
+        
+        # Privacy settings
+        with st.expander("🔒 Privacy", expanded=False):
+            st.selectbox("Who can see my profile photo", ["Everyone", "Contacts", "Nobody"])
+            st.selectbox("Who can see my status", ["Everyone", "Contacts", "Nobody"])
+            st.selectbox("Who can see my last seen", ["Everyone", "Contacts", "Nobody"])
             st.checkbox("Read receipts", value=True)
-            st.checkbox("Typing indicators", value=True)
-        with st.expander("About"):
-            st.write("ChatFusion Pro – Streamlit MVP. Local SQLite DB, simulated realtime.")
+        
+        # Chat settings
+        with st.expander("💬 Chat Settings", expanded=False):
+            st.selectbox("Theme", ["Light", "Dark", "Auto"])
+            st.selectbox("Font size", ["Small", "Medium", "Large"])
+            st.slider("Chat backup frequency", 1, 30, 7, help="Days")
+            st.checkbox("Auto-download media", value=True)
+        
+        # Advanced settings
+        with st.expander("🔧 Advanced", expanded=False):
+            st.selectbox("Language", ["English", "Spanish", "French", "German"])
+            st.checkbox("Developer mode", value=False)
+            st.button("Clear cache")
+            st.button("Export data")
+        
+        # Danger zone
+        with st.expander("⚠️ Danger Zone", expanded=False):
+            st.warning("These actions are irreversible!")
+            if st.button("Delete all messages", type="secondary"):
+                if st.checkbox("I understand this action cannot be undone"):
+                    st.error("This feature is not implemented in demo mode")
+            
+            if st.button("Delete account", type="secondary"):
+                if st.checkbox("I want to permanently delete my account"):
+                    st.error("This feature is not implemented in demo mode")
+    
+    def logout(self):
+        """Logout user and clear session"""
+        if st.session_state.user:
+            self.realtime.disconnect_user(st.session_state.user.user_id)
+        
+        # Clear session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        
+        st.rerun()
 
-# =============================
-# Run the app
-# =============================
-app = ChatApplication()
-app.main_ui()
+# Application entry point
+def main():
+    """Main application entry point"""
+    app = ChatApplication()
+    app.run()
+
+# Run the application
+if __name__ == "__main__":
+    main()
