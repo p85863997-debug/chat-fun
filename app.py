@@ -1015,6 +1015,7 @@ class ChatApplication:
             self.page_settings()
 
     # ---------- Pages ----------
+    
     class ChatApplication:
     class ChatApplication:
     def __init__(self):
@@ -1035,7 +1036,6 @@ class ChatApplication:
             self.page_stories()
         elif st.session_state.active_page == "settings":
             self.page_settings()
-
     def page_chats(self):
         st.title("💬 Chats")
 
