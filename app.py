@@ -1016,7 +1016,7 @@ class ChatApplication:
 
     # ---------- Pages ----------
     
-    class ChatApplication:
+class ChatApplication:
     def __init__(self):
         self.db = DatabaseManager()
         self.auth = AuthManager()
@@ -1288,5 +1288,6 @@ def __init__(self):
 # =============================
 app = ChatApplication()
 app.main_ui()
+
 
 
