@@ -24,7 +24,7 @@ import pickle
 import os
 from pathlib import Path
 from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=3000, key="chatrefresh")
+st_autorefresh(interval=1000, key="chatrefresh")
 
 # =============================
 # Configure Streamlit page
@@ -1016,61 +1016,59 @@ class ChatApplication:
 
     # ---------- Pages ----------
     def page_chats(self):
-        user = st.session_state.user
-        st.markdown("# 💬 Direct Messages")
-        col_left, col_right = st.columns([3, 2], gap="large")
+    st.title("💬 Chats")
 
-        with col_left:
-            active = st.session_state.active_chat
-            if not active:
-                st.info("Select a chat from the left sidebar or add a contact in the Contacts tab.")
-                return
-            other_user = self.db.get_user_by_id(active)
-            self._cache_user(other_user)
-            st.markdown(f"### Chat with **{other_user.username if other_user else 'Unknown'}**")
-            st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    user: User = st.session_state.user
+    active = st.session_state.active_chat
 
-            messages = self.db.get_messages(user.user_id, active, limit=200)
-            for m in messages:
-                self.ui.render_message(m, user.user_id, st.session_state.users_cache)
-            self.ui.render_typing_indicator(st.session_state.typing.get(active, []), st.session_state.users_cache)
-            st.markdown('</div>', unsafe_allow_html=True)
+    # 🔄 Auto-refresh every 3 seconds
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=3000, key="chatrefresh")
 
-            with st.form("send_dm_form", clear_on_submit=True):
-                txt = st.text_input("Type a message…", key="dm_text")
-                colA, colB, colC = st.columns([3, 1, 1])
-                with colA:
-                    expire = st.selectbox("Disappear in", ["Never", "1 min", "10 min", "60 min"], index=0)
-                with colB:
-                    st.form_submit_button("✉️ Send", use_container_width=True)
-                with colC:
-                    send_typing = st.form_submit_button("⌨️ Typing", use_container_width=True)
+    # Sidebar chat list
+    contacts = self.db.get_user_contacts(user.user_id)
+    self.ui.render_chat_list(contacts, active_chat=active)
 
-                if send_typing and txt:
-                    self.realtime.send_typing_indicator(user.user_id, active)
-                    st.session_state.typing[active] = st.session_state.typing.get(active, []) + [user.user_id]
-                    st.toast("Typing indicator sent (simulated)")
+    # If no active chat, show a message
+    if not active:
+        st.info("👈 Select a chat from the sidebar to start messaging.")
+        return
 
-                if st.session_state.get("send_dm_form-submitted") or (txt and st.session_state.get("dm_text")):
-                    pass  # placeholder
+    # Load messages
+    messages = self.db.get_messages(user.user_id, active, limit=50)
 
-                # Handle send on submit
-                if txt:
-                    minutes = None
-                    if expire == "1 min":
-                        minutes = 1
-                    elif expire == "10 min":
-                        minutes = 10
-                    elif expire == "60 min":
-                        minutes = 60
-                    msg = self.db.send_message(
-                        sender_id=user.user_id,
-                        recipient_id=active,
-                        content=txt,
-                        message_type=MessageType.TEXT,
-                        expires_minutes=minutes,
-                    )
-                    st.rerun()
+    # Render chat header
+    contact = next((c for c in contacts if c['user_id'] == active), None)
+    if contact:
+        st.markdown(f"### {contact['username']}")
+
+    # Show messages
+    users_dict = {c['user_id']: User(**c) for c in contacts if isinstance(c, dict)}
+    for msg in messages:
+        self.ui.render_message(msg, current_user_id=user.user_id, users=users_dict)
+
+    st.markdown("---")
+
+    # === Input area ===
+    if "send_clicked" not in st.session_state:
+        st.session_state.send_clicked = False
+
+    txt = st.text_input("Type your message...", key="chat_input")
+    minutes = st.slider("⏳ Message expiry (minutes)", 0, 60, 0)
+
+    if st.button("Send"):
+        st.session_state.send_clicked = True
+
+    if st.session_state.send_clicked and txt.strip():
+        self.db.send_message(
+            sender_id=user.user_id,
+            recipient_id=active,
+            content=txt,
+            message_type=MessageType.TEXT,
+        )
+        st.session_state.send_clicked = False  # reset
+        st.rerun()
+
 
         with col_right:
             st.markdown("### ⚙️ Chat Tools")
@@ -1209,4 +1207,3 @@ class ChatApplication:
 # =============================
 app = ChatApplication()
 app.main_ui()
-
